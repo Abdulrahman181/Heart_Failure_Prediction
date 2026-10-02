@@ -1,0 +1,9 @@
+# Local/private data and generated model artifacts
+/heart.csv
+/artifacts/
+*.pkl
+
+# Notebook and Python environment files
+.ipynb_checkpoints/
+.venv/
+__pycache__/
