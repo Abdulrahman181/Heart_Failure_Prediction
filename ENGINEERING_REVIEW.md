@@ -55,3 +55,36 @@
 - Install `requirements.txt` and provide the real dataset before executing the notebook.
 - The common source dataset is small; a single holdout is only a baseline. Clinical use would require external validation, calibration, uncertainty intervals, fairness analysis, and prospective governance.
 - Dependency minimums improve portability but do not guarantee identical results across all future library versions.
+
+## Second Senior Review
+
+### Scope and additional findings
+
+- Re-audited the complete tracked tree, including the notebook JSON, all Python/config/documentation/dependency files, repository tests, Git history/diff, output/execution state, and ignore rules.
+- The first repair still had a schema-validation gap: `astype("int64")` could truncate a fractional target such as `0.5` to `0`, and numeric feature columns were inferred from whatever dtypes happened to be present in the CSV. It also required XGBoost in `requirements.txt` while treating it as optional at runtime.
+- The first repair wrote only a pickle artifact with a working-directory-relative path, did not emit artifact metadata, and evaluated the test predictions more than once for the final report.
+- The sandbox has scikit-learn/pandas installed but no XGBoost; `heart.csv` remains intentionally absent. No real-data metrics are claimed.
+
+### Repairs made in this review
+
+1. Added `heart_failure_schema.py` with explicit numeric/categorical column contracts, duplicate/missing-column checks, strict binary target validation (including fractional-value rejection), malformed numeric-value rejection, usable-feature checks, class-count checks for the requested stratified split, and stable categorical normalization.
+2. Updated the notebook to use the shared validator, fixed feature-column selection to the declared schema, removed broad warning suppression, made final test prediction computation single-pass, and retained preprocessing inside each model pipeline.
+3. Made the optional XGBoost dependency explicit by removing it from mandatory installation requirements and documenting the opt-in package. Added conservative major-version upper bounds for the supported stack.
+4. Added trusted-local artifact metadata (`best_model_metadata.json`) beside the pickle and an explicit `HEART_FAILURE_ARTIFACT_DIR` override; the README now warns that pickle loading is unsafe for untrusted files.
+5. Added `tests/test_repository.py` with schema normalization/rejection tests and repository static checks. Updated README run instructions and this report.
+
+### Second-review validation
+
+- `python3 validate_repository.py` — **passed**.
+- `python3 -m unittest discover -s tests -v` — **passed** (4 tests).
+- `ruff check .` — **passed**.
+- Notebook code cells parsed with `ast.parse` — **passed**; notebook remains 9 cells, 0 outputs, and all code execution counts are `None`.
+- End-to-end notebook smoke run on an isolated synthetic fixture — **passed**, including pipeline fitting and model/metadata artifact creation. The fixture is not repository data and its metrics are not reported as project results.
+- `git diff --check` — **passed**.
+
+### Remaining risks after the second review
+
+- The real dataset is absent, so real-data training, model quality, and compatibility with the dataset owner’s exact CSV cannot be verified here.
+- The baseline still uses one validation split and one final holdout; it is not external validation, calibrated clinical evidence, or a substitute for cross-validated model development.
+- Pickle artifacts execute code when deserialized and must only be loaded from trusted sources. The metadata file documents the selected run but does not provide cryptographic integrity or environment locking.
+- Categorical values are accepted as arbitrary strings and unknown categories are ignored by design; domain-level allowed-value validation and clinical data governance remain out of scope.

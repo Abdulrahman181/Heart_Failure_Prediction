@@ -18,17 +18,19 @@ source .venv/bin/activate
 python -m pip install -r requirements.txt
 export HEART_FAILURE_DATA=/absolute/path/to/heart.csv
 python validate_repository.py
+python -m unittest discover -s tests -v
 jupyter notebook Heart_Failure_Prediction.ipynb
 ```
 
-Run cells from top to bottom. The workflow validates the schema, performs stratified 70/15/15 train/validation/test splits, fits imputation/one-hot encoding/scaling inside a scikit-learn `Pipeline`, selects by validation recall, and evaluates the selected model once on the untouched test set. `artifacts/` is local-only and ignored by git.
+Run cells from top to bottom. The workflow validates the schema (including strict numeric features and binary target values), performs stratified 70/15/15 train/validation/test splits, fits imputation/one-hot encoding/scaling inside a scikit-learn `Pipeline`, selects by validation recall, and evaluates the selected model once on the untouched test set. `artifacts/` is local-only and ignored by git. The shared checks live in `heart_failure_schema.py` so they can be tested independently of the notebook.
 
 ## Engineering notes
 
 - `validate_repository.py` performs dependency-free JSON, AST, stale-output, and non-portable-path checks. It does not execute training.
 - Randomness is controlled with seed `42`; models with stochastic behavior also receive that seed. Metrics remain dependent on the dataset and package versions.
-- XGBoost is optional at notebook runtime so static inspection works without its native dependency; it is listed in `requirements.txt` for a full run.
-- A full training run was **not** claimed during this audit because `heart.csv` is absent and the sandbox does not have scikit-learn/XGBoost installed.
+- XGBoost is optional at notebook runtime and is not a mandatory dependency; install it separately if you want the additional XGBoost candidate. The baseline remains usable without its native package.
+- Model artifacts are trusted local pickle files. Do not load a pickle received from an untrusted source. Set `HEART_FAILURE_ARTIFACT_DIR` to control where the notebook writes the selected model and metadata.
+- A full training run was **not** claimed during this audit because `heart.csv` is absent; scikit-learn is available in the review environment, while XGBoost is not.
 
 ## Limitations and cautions
 
